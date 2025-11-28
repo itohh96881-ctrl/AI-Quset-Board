@@ -2017,6 +2017,55 @@
             window.closeModal();
         };
 
+        window.openConsultModal = function(id) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest) return;
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modal = document.getElementById('commonModal');
+            
+            modalTitle.innerText = "Consult Mentor 🧙‍♂️";
+            modalBody.innerHTML = `
+                <div style="background:#1e293b; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #334155;"><strong>${quest.title}</strong></div>
+                <textarea id="consultInput" class="report-textarea" style="height:100px;" placeholder="相談内容..."></textarea>
+                <button id="submitConsultBtn" class="submit-btn" style="background:var(--consult);" onclick="submitConsultation(${id})">Ask Mentor</button>
+                <div id="consultResult" style="margin-top:20px;"></div>
+            `;
+            modal.style.display = 'block';
+        }
+
+        window.submitConsultation = async function(id) {
+            const quest = questData.find(q => q.id === id);
+            const inputVal = document.getElementById('consultInput').value;
+            const resultArea = document.getElementById('consultResult');
+            const btn = document.getElementById('submitConsultBtn');
+            
+            let progressText = "";
+            if (quest.steps) {
+                progressText = quest.steps.map((step, idx) => {
+                    const isChecked = (quest.checkedSteps || []).includes(idx);
+                    return `- Step ${idx + 1}: ${step} [${isChecked ? '完了' : '未完了'}]`;
+                }).join('\n');
+            }
+
+            btn.disabled = true;
+            btn.innerText = "Consulting...";
+            resultArea.innerHTML = '<div style="text-align:center;">Thinking...</div>';
+
+            const prompt = `あなたはAI学習クエストの親切なメンターです。クエスト: ${quest.title}, 進捗: ${progressText}, 相談: "${inputVal}"。具体的アドバイスをください。`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            const data = await callGeminiAPI(payload);
+
+            if (data && data.candidates) {
+                const advice = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                resultArea.innerHTML = `<div style="background:rgba(249, 115, 22, 0.1); border-left:4px solid var(--consult); padding:15px; border-radius:6px; color:#ffedd5;">${advice}</div>`;
+            } else {
+                resultArea.innerHTML = 'Error.';
+            }
+            btn.disabled = false;
+            btn.innerText = "Ask Mentor";
+        };
+
         window.openOracle = async function() {
             const modalTitle = document.getElementById('modalTitle');
             const modalBody = document.getElementById('modalBody');
@@ -2075,6 +2124,7 @@
             
             let mainContent = '';
             let actionButton = '';
+            let consultButton = '';
             let quizButton = '';
             let artifactSection = ''; // 成果物表示用
             let chatSection = ''; // チャットエリア
@@ -2145,8 +2195,8 @@
 
                 const stepsHtml = steps.map((step, index) => {
                     const isChecked = checkedSteps.includes(index);
-                    return `<li class="step-item ${isChecked ? 'checked' : ''}" onclick="toggleStep(${quest.id}, ${index})">
-                            <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleStep(${quest.id}, ${index})">
+                    return `<li class="step-item ${isChecked ? 'checked' : ''}">
+                            <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="toggleStep(${quest.id}, ${index})">
                             <span class="step-text">${step}</span>
                         </li>`;
                 }).join('');
