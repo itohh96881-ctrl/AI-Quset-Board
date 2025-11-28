@@ -486,8 +486,9 @@
             padding: 10px 15px;
             border-radius: 12px;
             font-size: 0.95rem;
-            line-height: 1.5;
+            line-height: 1.6; /* 行間を広げて読みやすく */
             word-wrap: break-word;
+            white-space: pre-wrap; /* 重要: 改行とスペースをそのまま表示 */
         }
         .chat-message.user {
             align-self: flex-end;
@@ -503,7 +504,7 @@
             border: 1px solid #475569;
         }
         .chat-message.model strong {
-            color: var(--ai-color);
+            color: #fbbf24; /* 太字を強調色に */
         }
         .chat-input-area {
             padding: 10px;
@@ -2149,9 +2150,25 @@
 
             // --- チャットUIの生成 (進行中かつ詳細モード) ---
             if (isDetailMode && quest.started && !quest.isCleared) {
-                const chatMessages = (quest.chatHistory || []).map(msg => 
-                    `<div class="chat-message ${msg.role}"><strong>${msg.role === 'user' ? 'You' : '🧙‍♂️ Mentor'}</strong><br>${msg.text}</div>`
-                ).join('');
+                const chatMessages = (quest.chatHistory || []).map(msg => {
+                    let content = msg.text;
+                    
+                    // テキストの簡易整形処理
+                    // 1. HTMLエスケープ（XSS対策）
+                    content = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    
+                    // 2. Markdown風の記法を変換して見やすくする
+                    // 太字 **text** -> <strong>text</strong>
+                    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    
+                    // 見出し ### text -> 強調表示 (改行は見出しっぽく見えるように強調)
+                    content = content.replace(/^#{1,6}\s+(.*)$/gm, '<strong style="font-size:1.1em; color:#60a5fa;">$1</strong>');
+                    
+                    // 水平線 --- -> <hr>
+                    content = content.replace(/^\s*---\s*$/gm, '<hr style="border-color:#475569; margin:10px 0;">');
+
+                    return `<div class="chat-message ${msg.role}"><strong>${msg.role === 'user' ? 'You' : '🧙‍♂️ Mentor'}</strong><br>${content}</div>`;
+                }).join('');
 
                 chatSection = `
                     <div class="chat-section">
@@ -2195,8 +2212,8 @@
 
                 const stepsHtml = steps.map((step, index) => {
                     const isChecked = checkedSteps.includes(index);
-                    return `<li class="step-item ${isChecked ? 'checked' : ''}">
-                            <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="toggleStep(${quest.id}, ${index})">
+                    return `<li class="step-item ${isChecked ? 'checked' : ''}" onclick="toggleStep(${quest.id}, ${index})">
+                            <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation(); toggleStep(${quest.id}, ${index})">
                             <span class="step-text">${step}</span>
                         </li>`;
                 }).join('');
@@ -2213,6 +2230,7 @@
                 } else {
                     actionButton = `<button class="complete-action-btn" disabled>Complete all steps first</button>`;
                 }
+                consultButton = `<button class="consult-btn" onclick="openConsultModal(${quest.id})"><span>Consult 💬</span></button>`;
 
             } else {
                 const stepsList = (quest.steps || []).map(step => `<li>${step}</li>`).join('');
@@ -2241,6 +2259,7 @@
                 <div class="action-area" onclick="event.stopPropagation()">
                     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                         <button class="hint-btn" onclick="getAIHint(${quest.id}, this)" ${quest.isCleared ? 'disabled' : ''}><span>Hint ✨</span></button>
+                        ${consultButton}
                         ${quizButton}
                     </div>
                     ${actionButton}
