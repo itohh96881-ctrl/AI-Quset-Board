@@ -276,6 +276,14 @@
             color: var(--text-main);
             border-color: var(--text-sub);
         }
+        
+        /* New: 選択中のボタンのスタイル */
+        .diff-btn.active {
+            background-color: var(--accent);
+            color: white;
+            border-color: var(--accent);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
 
         /* メインエリア */
         main {
@@ -1032,13 +1040,13 @@
         </div>
     </div>
 
-    <!-- 難易度バー -->
+    <!-- 難易度バー (Updated to match logic) -->
     <div class="difficulty-bar">
-        <button class="diff-btn" onclick="openLevelModal(1)">★ Level 1</button>
-        <button class="diff-btn" onclick="openLevelModal(2)">★★ Level 2</button>
-        <button class="diff-btn" onclick="openLevelModal(3)">★★★ Level 3</button>
-        <button class="diff-btn" onclick="openLevelModal(4)">★★★★ Level 4</button>
-        <button class="diff-btn" onclick="openLevelModal(5)">★★★★★ Level 5</button>
+        <button class="diff-btn" onclick="filterQuests(1)">★ Level 1</button>
+        <button class="diff-btn" onclick="filterQuests(2)">★★ Level 2</button>
+        <button class="diff-btn" onclick="filterQuests(3)">★★★ Level 3</button>
+        <button class="diff-btn" onclick="filterQuests(4)">★★★★ Level 4</button>
+        <button class="diff-btn" onclick="filterQuests(5)">★★★★★ Level 5</button>
     </div>
 
     <!-- メインコンテンツ -->
@@ -1077,7 +1085,7 @@
          */
         
         // ★ バージョン情報
-        const APP_VERSION = "v2.0.4"; // 
+        const APP_VERSION = "v2.0.6"; // Updated
         const LAST_UPDATE = "2025-11-29";
 
         // アプリケーション全体の状態
@@ -1090,6 +1098,7 @@
         // 現在のユーザーごとのデータ
         let totalXP = 0;
         let questData = [];
+        let currentFilter = null; // New: フィルター状態の保持
         
         // APIキー設定（全ユーザー共通）
         const GLOBAL_API_KEY_STORAGE = 'ai_quest_global_api_key';
@@ -1663,6 +1672,26 @@
 
         window.generateStars = count => '★'.repeat(count);
 
+        // 新機能: 難易度フィルター
+        window.filterQuests = function(level) {
+            const buttons = document.querySelectorAll('.difficulty-bar .diff-btn');
+            
+            if (currentFilter === level) {
+                // 解除
+                currentFilter = null;
+                buttons.forEach(btn => btn.classList.remove('active'));
+            } else {
+                // 設定
+                currentFilter = level;
+                buttons.forEach((btn, index) => {
+                    // index starts at 0, levels at 1
+                    if (index + 1 === level) btn.classList.add('active');
+                    else btn.classList.remove('active');
+                });
+            }
+            renderQuests();
+        };
+
         window.renderQuests = function() {
             container.innerHTML = '';
             container.className = ''; 
@@ -1675,8 +1704,14 @@
                 return b.id - a.id;
             };
 
-            const activeQuests = questData.filter(q => !q.isCleared).sort(sortFn);
-            const completedQuests = questData.filter(q => q.isCleared).sort(sortFn);
+            // フィルター適用
+            let filtered = questData;
+            if (currentFilter !== null) {
+                filtered = questData.filter(q => q.difficulty === currentFilter);
+            }
+
+            const activeQuests = filtered.filter(q => !q.isCleared).sort(sortFn);
+            const completedQuests = filtered.filter(q => q.isCleared).sort(sortFn);
 
             if (activeQuests.length > 0) {
                 const activeGrid = document.createElement('div');
@@ -1686,7 +1721,10 @@
                 });
                 container.appendChild(activeGrid);
             } else {
-                container.innerHTML += '<div class="empty-msg">No active quests. Try generating a new one! ✨</div>';
+                const msg = currentFilter 
+                    ? `No active quests for Difficulty ★${currentFilter}.` 
+                    : 'No active quests. Try generating a new one! ✨';
+                container.innerHTML += `<div class="empty-msg">${msg}</div>`;
             }
 
             if (completedQuests.length > 0) {
