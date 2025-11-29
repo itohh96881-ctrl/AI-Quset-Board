@@ -1067,7 +1067,7 @@
          */
         
         // ★ バージョン情報
-        const APP_VERSION = "v3.0.3"; // 修正: createQuestCard
+        const APP_VERSION = "v3.0.4"; // 修正: createQuestCard 復元
         const LAST_UPDATE = "2025-11-29";
 
         // Firebase Init
@@ -1931,7 +1931,7 @@
             resultDiv.appendChild(closeBtn);
         };
 
-        // Quest Card Create Function - Restored!
+        // Restored: Quest Card Create Function
         function createQuestCard(quest, isDetailMode) {
             const card = document.createElement('div');
             card.className = `quest-card ${quest.isCleared ? 'completed' : ''}`;
