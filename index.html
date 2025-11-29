@@ -1067,7 +1067,7 @@
          */
         
         // ★ バージョン情報
-        const APP_VERSION = "v3.0.1"; // 修正: window.initApp定義
+        const APP_VERSION = "v3.0.3"; // 修正: createQuestCard
         const LAST_UPDATE = "2025-11-29";
 
         // Firebase Init
@@ -1216,19 +1216,24 @@
             const footerVersion = document.getElementById('version-number');
             if(footerVersion) footerVersion.innerText = `${APP_VERSION} (Sync Active)`;
 
-            // Auth
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-            
-            onAuthStateChanged(auth, (user) => {
-                if (user) {
-                    console.log("Authenticated. Starting sync...");
-                    startAppStateSync();
+            try {
+                // Auth
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
                 }
-            });
+                
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        console.log("Authenticated. Starting sync...");
+                        startAppStateSync();
+                    }
+                });
+            } catch (e) {
+                console.error("Auth failed:", e);
+                alert("認証に失敗しました。ブラウザのトラッキング防止機能などが原因の可能性があります。\n" + e.message);
+            }
         };
 
         // 1. App State (User List) Sync
@@ -1273,7 +1278,7 @@
                     const data = docSnap.data();
                     totalXP = data.totalXP || 0;
                     
-                    // Merge logic for questData (add new default quests if missing)
+                    // Merge logic for questData
                     let savedQuests = data.questData || [];
                     let hasNew = false;
                     defaultQuestData.forEach(defQ => {
@@ -1300,7 +1305,7 @@
                     updateCharacterStatus();
                     window.renderQuests();
                 } else {
-                    // If user doc doesn't exist (shouldn't happen if flow is correct, but safe fallback)
+                    // If user doc doesn't exist
                     resetToDefault();
                 }
             }, (error) => {
@@ -1353,6 +1358,7 @@
             if(btn) btn.innerText = name;
         }
 
+        // グローバル関数定義 (HTMLから呼べるようにwindowに紐付け)
         window.openUserModal = function() {
             const modalTitle = document.getElementById('modalTitle');
             const modalBody = document.getElementById('modalBody');
@@ -1925,255 +1931,6 @@
             resultDiv.appendChild(closeBtn);
         };
 
-        // --- ギルドカード生成 ---
-        window.openGuildCardModal = async function() {
-            const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
-            const modal = document.getElementById('commonModal');
-
-            modalTitle.innerText = "🪪 Guild Card Generation";
-            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:var(--gold);"></div><br><br>Analyzing your journey...</div>';
-            modal.style.display = 'block';
-
-            // 分析用データの作成
-            const completed = questData.filter(q => q.isCleared).map(q => q.title);
-            const rank = getCurrentRank(totalXP);
-            
-            if (completed.length === 0) {
-                modalBody.innerHTML = '<div style="text-align:center; padding:20px;">まだクリアしたクエストがありません。<br>クエストをクリアしてから発行しましょう！</div>';
-                return;
-            }
-
-            const prompt = `
-                ユーザーの冒険の記録（完了したクエスト）をもとに、ファンタジーRPG風のギルドカード情報を生成してください。
-                
-                完了クエスト: ${completed.join(', ')}
-                現在のランク: ${rank.title}
-                総XP: ${totalXP}
-                
-                出力JSON形式:
-                {
-                    "class": "職業名（例：Python Sorcerer, Idea Knight）",
-                    "title": "称号（例：The Bug Slayer, Master of Focus）",
-                    "bio": "短い紹介文（100文字程度、英雄譚風に）"
-                }
-                
-                職業と称号は、完了したクエストの内容（プログラミング、料理、学習など）の傾向を反映したユニークなものにしてください。
-            `;
-
-            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const data = await callGeminiAPI(payload);
-            
-            if (data && data.candidates) {
-                try {
-                    const card = JSON.parse(data.candidates[0].content.parts[0].text);
-                    const userName = document.getElementById('currentUserName').innerText;
-                    
-                    modalBody.innerHTML = `
-                        <div class="guild-card-container">
-                            <div class="gc-rank">Rank: ${rank.title}</div>
-                            <div class="gc-name">${userName}</div>
-                            <div class="gc-class">${card.class}</div>
-                            
-                            <div class="gc-stats">
-                                <div class="gc-stat-item">
-                                    <span class="gc-stat-val">${totalXP}</span>
-                                    <span class="gc-stat-label">Total XP</span>
-                                </div>
-                                <div class="gc-stat-item">
-                                    <span class="gc-stat-val">${completed.length}</span>
-                                    <span class="gc-stat-label">Quests</span>
-                                </div>
-                            </div>
-                            
-                            <div style="margin-bottom:15px; color:var(--gold); font-weight:bold;">"${card.title}"</div>
-                            <div class="gc-bio">${card.bio}</div>
-                        </div>
-                        <div style="text-align:center; margin-top:20px;">
-                            <button class="submit-btn" onclick="closeModal()">Awesome!</button>
-                        </div>
-                    `;
-                } catch(e) {
-                    console.error(e);
-                    modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">カード生成に失敗しました。</div>';
-                }
-            } else {
-                modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">通信エラーが発生しました。</div>';
-            }
-        }
-
-        window.generateNewQuest = async function(level) {
-            const modalBody = document.getElementById('modalBody');
-            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#a855f7; width:30px; height:30px;"></div><br><br>Generating Quest...</div>';
-
-            const difficultyText = level ? `難易度: ${level}` : `難易度: 1〜5のランダムな整数`;
-            const fullPrompt = `
-                AI学習者が楽しめるユニークなクエストを1つ考えてください。
-                以下のJSON形式で日本語で出力してください:
-                { 
-                    "title": "クエストのタイトル", 
-                    "difficulty": ${level ? level : "1〜5の整数"},
-                    "condition": "クリア条件（何を達成すればOKか具体的に）",
-                    "steps": ["ステップ1（具体的行動）", "ステップ2（具体的行動）", "ステップ3（具体的行動）", "ステップ4（具体的行動）"] 
-                }
-                条件:
-                1. 指定された${difficultyText}で作成すること。
-                2. 内容は「Geminiに〇〇をさせる」「AIを使って〇〇を作る」など実践的なもの。
-                3. "steps" はユーザーが迷わないように、具体的かつ実行可能なアクション（例：「〇〇と入力する」「〇〇ボタンを押す」など）で3〜5段階に分けて記述すること。
-                
-                【難易度の定義】
-                ★1: チャット完結
-                ★2: 外部ツール活用
-                ★3: 複数ツール自動化
-                ★4: AIコーディング・開発
-                ★5: 高度な開発
-            `;
-
-            const payload = { contents: [{ parts: [{ text: fullPrompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const data = await callGeminiAPI(payload);
-            
-            if (data && data.candidates) {
-                try {
-                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                    questData.push({ id: Date.now(), title: res.title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
-                    saveCurrentData();
-                    window.renderQuests();
-                    window.closeModal();
-                } catch(e) { console.error(e); alert("生成エラー"); window.closeModal(); }
-            } else { window.closeModal(); }
-        };
-
-        window.generateCustomQuest = async function() {
-            const title = document.getElementById('manualTitle').value.trim();
-            if (!title) { alert("タイトルを入力してください"); return; }
-            
-            const modalBody = document.getElementById('modalBody');
-            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#ec4899; width:30px; height:30px;"></div><br><br>Generating Quest Details...</div>';
-
-            const prompt = `
-                ユーザーが「${title}」というクエスト（タスク）を実行しようとしています。
-                このクエストのタイトルをもとに、適切な難易度(1-5)、具体的なクリア条件、実行ステップ(3-5個)を考えてJSONで出力してください。
-                出力JSON形式: { "difficulty": 1〜5, "condition": "...", "steps": ["..."] }
-                条件: 難易度はタスクの複雑さから推定。ステップは具体的アクションで。
-            `;
-
-            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-            const data = await callGeminiAPI(payload);
-            
-            if (data && data.candidates) {
-                try {
-                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                    questData.push({ id: Date.now(), title: title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
-                    saveCurrentData();
-                    window.renderQuests();
-                    window.closeModal();
-                } catch(e) { console.error(e); alert("エラー"); window.closeModal(); }
-            } else { window.closeModal(); }
-        };
-
-        window.saveManualQuest = function() {
-            const title = document.getElementById('manualTitle').value.trim();
-            const difficulty = parseInt(document.getElementById('manualDiff').value);
-            const condition = document.getElementById('manualCondition').value.trim();
-            const stepsText = document.getElementById('manualSteps').value.trim();
-            if (!title) { alert("タイトルを入力してください"); return; }
-            const steps = stepsText ? stepsText.split('\n').map(s => s.trim()).filter(s => s) : ["手順を確認して実行する"];
-            
-            questData.push({ id: Date.now(), title: title, difficulty: difficulty, condition: condition, steps: steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
-            saveCurrentData();
-            window.renderQuests();
-            window.closeModal();
-        };
-
-        window.openConsultModal = function(id) {
-            const quest = questData.find(q => q.id === id);
-            if (!quest) return;
-            const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
-            const modal = document.getElementById('commonModal');
-            
-            modalTitle.innerText = "Consult Mentor 🧙‍♂️";
-            modalBody.innerHTML = `
-                <div style="background:#1e293b; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #334155;"><strong>${quest.title}</strong></div>
-                <textarea id="consultInput" class="report-textarea" style="height:100px;" placeholder="相談内容..."></textarea>
-                <button id="submitConsultBtn" class="submit-btn" style="background:var(--consult);" onclick="submitConsultation(${id})">Ask Mentor</button>
-                <div id="consultResult" style="margin-top:20px;"></div>
-            `;
-            modal.style.display = 'block';
-        }
-
-        window.submitConsultation = async function(id) {
-            const quest = questData.find(q => q.id === id);
-            const inputVal = document.getElementById('consultInput').value;
-            const resultArea = document.getElementById('consultResult');
-            const btn = document.getElementById('submitConsultBtn');
-            
-            let progressText = "";
-            if (quest.steps) {
-                progressText = quest.steps.map((step, idx) => {
-                    const isChecked = (quest.checkedSteps || []).includes(idx);
-                    return `- Step ${idx + 1}: ${step} [${isChecked ? '完了' : '未完了'}]`;
-                }).join('\n');
-            }
-
-            btn.disabled = true;
-            btn.innerText = "Consulting...";
-            resultArea.innerHTML = '<div style="text-align:center;">Thinking...</div>';
-
-            const prompt = `あなたはAI学習クエストの親切なメンターです。クエスト: ${quest.title}, 進捗: ${progressText}, 相談: "${inputVal}"。具体的アドバイスをください。`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            const data = await callGeminiAPI(payload);
-
-            if (data && data.candidates) {
-                const advice = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
-                resultArea.innerHTML = `<div style="background:rgba(249, 115, 22, 0.1); border-left:4px solid var(--consult); padding:15px; border-radius:6px; color:#ffedd5;">${advice}</div>`;
-            } else {
-                resultArea.innerHTML = 'Error.';
-            }
-            btn.disabled = false;
-            btn.innerText = "Ask Mentor";
-        };
-
-        window.openOracle = async function() {
-            const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
-            const modal = document.getElementById('commonModal');
-            
-            modalTitle.innerText = "Daily Oracle 🔮";
-            modalBody.innerHTML = '<div style="text-align:center;">Receiving message...</div>';
-            modal.style.display = 'block';
-
-            const prompt = `AI学習者に向けて、神秘的で少しユーモアのある「今日の格言」または「学習のヒント」を日本語で1つ生成してください。`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            const data = await callGeminiAPI(payload);
-
-            if (data && data.candidates) {
-                const text = data.candidates[0].content.parts[0].text;
-                modalBody.innerHTML = `<div style="font-size:1.2rem; text-align:center; padding:20px;">"${text}"</div>`;
-            } else {
-                modalBody.innerHTML = 'Error.';
-            }
-        };
-
-        window.getAIHint = async function(id, btn) {
-            const quest = questData.find(q => q.id === id);
-            const originalText = btn.innerHTML;
-            btn.innerHTML = '...';
-            btn.disabled = true;
-            const prompt = `クエスト「${quest.title}」のヒントを日本語で1文で。`;
-            const payload = { contents: [{ parts: [{ text: prompt }] }] };
-            const data = await callGeminiAPI(payload);
-            if (data && data.candidates) {
-                quest.hint = data.candidates[0].content.parts[0].text;
-                saveCurrentData();
-                const hintArea = document.getElementById(`hint-area-${id}`);
-                if (hintArea) { hintArea.innerText = "💡 Hint: " + quest.hint; hintArea.style.display = "block"; }
-                else { if (container.classList.contains('single-view-container')) window.renderSingleQuest(id); }
-            }
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-        };
-
         // Quest Card Create Function - Restored!
         function createQuestCard(quest, isDetailMode) {
             const card = document.createElement('div');
@@ -2381,6 +2138,7 @@
 
         // 初期化実行
         window.initApp();
+
     </script>
 </body>
 </html>
