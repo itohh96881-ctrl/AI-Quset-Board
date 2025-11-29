@@ -44,6 +44,8 @@
             margin: 0;
             padding: 0;
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
         /* 装飾: カスタムスクロールバー */
@@ -280,6 +282,18 @@
             padding: 20px;
             max-width: 1200px;
             margin: 0 auto;
+            flex: 1; /* フッターを下に押しやる */
+        }
+
+        /* フッター */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-sub);
+            font-size: 0.8rem;
+            border-top: 1px solid rgba(51, 65, 85, 0.5);
+            margin-top: 40px;
+            background-color: rgba(15, 23, 42, 0.5);
         }
 
         .view-header {
@@ -1018,6 +1032,11 @@
         </div>
     </main>
 
+    <!-- フッター (バージョン表示) -->
+    <footer>
+        AI Quest Board <span id="version-number"></span>
+    </footer>
+
     <!-- 共通モーダル -->
     <div id="commonModal" class="modal">
         <div class="modal-content">
@@ -1037,6 +1056,10 @@
          * =========================================
          */
         
+        // ★ バージョン情報 (GitHubのリリースに合わせて更新してください)
+        const APP_VERSION = "v2.0.0";
+        const LAST_UPDATE = "2025-11-29"; // 最終更新日
+
         // アプリケーション全体の状態
         const APP_STATE_KEY = 'ai_quest_app_state';
         let appState = {
@@ -1165,6 +1188,12 @@
 
         // アプリ初期化
         window.initApp = function() {
+            // バージョン表示更新
+            const footerVersion = document.getElementById('version-number');
+            if(footerVersion) {
+                footerVersion.innerText = `${APP_VERSION} (Last Updated: ${LAST_UPDATE})`;
+            }
+
             const savedState = localStorage.getItem(APP_STATE_KEY);
             if (savedState) {
                 appState = JSON.parse(savedState);
