@@ -39,7 +39,7 @@
                 radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%),
                 radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.15) 0px, transparent 50%),
                 radial-gradient(at 0% 100%, rgba(245, 158, 11, 0.1) 0px, transparent 50%);
-            background-attachment: fixed; /* スクロールしても背景を固定 */
+            background-attachment: fixed;
             color: var(--text-main);
             margin: 0;
             padding: 0;
@@ -67,7 +67,7 @@
 
         /* ヘッダーエリア */
         header {
-            background: rgba(15, 23, 42, 0.85); /* 少し透明度を上げて背景を透かす */
+            background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
             padding: 10px 20px;
             position: sticky;
@@ -90,7 +90,7 @@
             -webkit-text-fill-color: transparent;
             font-weight: 800;
             cursor: pointer;
-            text-shadow: 0 0 30px rgba(96, 165, 250, 0.3); /* 微かな光彩 */
+            text-shadow: 0 0 30px rgba(96, 165, 250, 0.3);
         }
 
         .header-controls {
@@ -241,7 +241,7 @@
 
         .ai-gen-btn:hover, .oracle-btn:hover, .custom-quest-btn:hover, .guild-card-btn:hover {
             transform: translateY(-2px);
-            filter: brightness(1.15); /* 少し明るく */
+            filter: brightness(1.15);
         }
         .ai-gen-btn:disabled, .oracle-btn:disabled, .custom-quest-btn:disabled, .guild-card-btn:disabled {
             opacity: 0.7;
@@ -250,7 +250,7 @@
 
         /* 難易度バー */
         .difficulty-bar {
-            background-color: rgba(30, 41, 59, 0.5); /* 透過 */
+            background-color: rgba(30, 41, 59, 0.5);
             padding: 10px 20px;
             border-bottom: 1px solid rgba(51, 65, 85, 0.5);
             display: flex;
@@ -282,7 +282,9 @@
             padding: 20px;
             max-width: 1200px;
             margin: 0 auto;
-            flex: 1; /* フッターを下に押しやる */
+            flex: 1;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         /* フッター */
@@ -336,17 +338,35 @@
             background: rgba(30, 41, 59, 0.3);
         }
 
-        /* グリッドレイアウト */
+        /* グリッドレイアウト (修正版) */
         .quest-grid, .gallery-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            /* デフォルト (スマホなど) は1列 */
+            grid-template-columns: 1fr;
             gap: 20px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* タブレットサイズ (600px以上) は2列 */
+        @media (min-width: 600px) {
+            .quest-grid, .gallery-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* PCサイズ (900px以上) は3列 */
+        @media (min-width: 900px) {
+            .quest-grid, .gallery-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
         }
 
         /* シングルビュー */
         .single-view-container {
             display: flex;
             justify-content: center;
+            width: 100%;
         }
 
         .single-view-container .quest-card {
@@ -354,7 +374,7 @@
             max-width: 800px;
             min-height: 300px;
             border: 2px solid var(--accent);
-            box-shadow: 0 0 50px rgba(59, 130, 246, 0.15); /* グロー効果強化 */
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.15);
             cursor: default;
         }
 
@@ -370,12 +390,12 @@
             flex-direction: column;
             min-height: 220px;
             cursor: pointer;
+            box-sizing: border-box;
         }
 
-        /* 装飾: カードホバー時の発光 */
         .quest-card:not(.single-view-card):hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.3); /* グロー */
+            box-shadow: 0 15px 30px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.3);
             border-color: var(--accent);
         }
 
@@ -428,7 +448,7 @@
             color: #e2e8f0;
         }
 
-        /* ステップリスト（チェックボックス対応） */
+        /* ステップリスト */
         .step-list {
             margin: 0;
             padding: 0;
@@ -500,9 +520,9 @@
             padding: 10px 15px;
             border-radius: 12px;
             font-size: 0.95rem;
-            line-height: 1.6; /* 行間を広げて読みやすく */
+            line-height: 1.6;
             word-wrap: break-word;
-            white-space: pre-wrap; /* 重要: 改行とスペースをそのまま表示 */
+            white-space: pre-wrap;
         }
         .chat-message.user {
             align-self: flex-end;
@@ -518,7 +538,7 @@
             border: 1px solid #475569;
         }
         .chat-message.model strong {
-            color: #fbbf24; /* 太字を強調色に */
+            color: #fbbf24;
         }
         .chat-input-area {
             padding: 10px;
@@ -1005,7 +1025,7 @@
     </header>
 
     <!-- 成果物ギャラリー (ここに移動) -->
-    <div id="artifact-gallery" style="display: none; padding: 20px; max-width: 1200px; margin: 0 auto;">
+    <div id="artifact-gallery" style="display: none; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;">
         <h2 class="section-title">🏆 Artifacts Gallery</h2>
         <div id="gallery-container" class="gallery-grid">
             <!-- Artifact cards here -->
@@ -1056,9 +1076,9 @@
          * =========================================
          */
         
-        // ★ バージョン情報 (GitHubのリリースに合わせて更新してください)
-        const APP_VERSION = "v2.0.0";
-        const LAST_UPDATE = "2025-11-29"; // 最終更新日
+        // ★ バージョン情報
+        const APP_VERSION = "v2.0.4"; // 
+        const LAST_UPDATE = "2025-11-29";
 
         // アプリケーション全体の状態
         const APP_STATE_KEY = 'ai_quest_app_state';
@@ -2136,6 +2156,7 @@
             btn.disabled = false;
         };
 
+        // Quest Card Create Function - Restored!
         function createQuestCard(quest, isDetailMode) {
             const card = document.createElement('div');
             card.className = `quest-card ${quest.isCleared ? 'completed' : ''}`;
@@ -2159,7 +2180,7 @@
             let artifactSection = ''; // 成果物表示用
             let chatSection = ''; // チャットエリア
 
-            // --- 成果物表示エリアの生成 ---
+            // --- Artifacts Section ---
             if (isDetailMode) {
                 const artifacts = quest.artifacts || [];
                 const artifactItems = artifacts.map(a => 
@@ -2177,17 +2198,14 @@
                 `;
             }
 
-            // --- チャットUIの生成 (進行中かつ詳細モード) ---
+            // --- Chat UI ---
             if (isDetailMode && quest.started && !quest.isCleared) {
                 const chatMessages = (quest.chatHistory || []).map(msg => {
                     let content = msg.text;
-                    
-                    // テキストの簡易整形処理
                     content = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
                     content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                     content = content.replace(/^#{1,6}\s+(.*)$/gm, '<strong style="font-size:1.1em; color:#60a5fa;">$1</strong>');
                     content = content.replace(/^\s*---\s*$/gm, '<hr style="border-color:#475569; margin:10px 0;">');
-
                     return `<div class="chat-message ${msg.role}"><strong>${msg.role === 'user' ? 'You' : '🧙‍♂️ Mentor'}</strong><br>${content}</div>`;
                 }).join('');
 
@@ -2207,6 +2225,7 @@
                 `;
             }
 
+            // --- Content Switch ---
             if (quest.isCleared) {
                 const stepsList = (quest.steps || []).map(step => 
                     `<li class="step-item checked"><span class="step-bullet">✓</span><span class="step-text">${step}</span></li>`
@@ -2215,7 +2234,7 @@
                 mainContent = `
                     <div class="quest-details" style="display:block;">
                         <ul class="step-list">${stepsList}</ul>
-                        ${artifactSection} <!-- 成果物エリア -->
+                        ${artifactSection}
                     </div>
                 `;
                 actionButton = `<button class="complete-action-btn" disabled>✓ Completed</button>`;
