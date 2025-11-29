@@ -338,28 +338,13 @@
             background: rgba(30, 41, 59, 0.3);
         }
 
-        /* グリッドレイアウト (修正版) */
+        /* グリッドレイアウト */
         .quest-grid, .gallery-grid {
             display: grid;
-            /* デフォルト (スマホなど) は1列 */
-            grid-template-columns: 1fr;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
             width: 100%;
             box-sizing: border-box;
-        }
-
-        /* タブレットサイズ (600px以上) は2列 */
-        @media (min-width: 600px) {
-            .quest-grid, .gallery-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        /* PCサイズ (900px以上) は3列 */
-        @media (min-width: 900px) {
-            .quest-grid, .gallery-grid {
-                grid-template-columns: repeat(3, 1fr);
-            }
         }
 
         /* シングルビュー */
@@ -1070,28 +1055,39 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // Firebase SDK
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
         /* * =========================================
          * データ & 設定
          * =========================================
          */
         
         // ★ バージョン情報
-        const APP_VERSION = "v2.0.4"; // 
+        const APP_VERSION = "v3.0.1"; // 修正: window.initApp定義
         const LAST_UPDATE = "2025-11-29";
 
+        // Firebase Init
+        const firebaseConfig = JSON.parse(__firebase_config || '{}');
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
         // アプリケーション全体の状態
-        const APP_STATE_KEY = 'ai_quest_app_state';
         let appState = {
             currentUserId: null,
-            users: []
+            users: [] // [{ id: 'user_123', name: 'Main' }]
         };
 
         // 現在のユーザーごとのデータ
         let totalXP = 0;
         let questData = [];
         
-        // APIキー設定（全ユーザー共通）
+        // APIキー設定（全ユーザー共通 - localStorage）
         const GLOBAL_API_KEY_STORAGE = 'ai_quest_global_api_key';
         let userApiKey = localStorage.getItem(GLOBAL_API_KEY_STORAGE) || "";
 
@@ -1114,8 +1110,8 @@
                 isCleared: false, 
                 condition: "Geminiに「私の名前は〇〇です。覚えてね」と伝え、その後「私の名前は？」と聞いて正解させる。",
                 steps: [
-                    "Geminiのチャット画面（https://gemini.google.com/）を開く",
-                    "チャット欄に「こんにちは、私の名前は〇〇です。覚えてください」と入力して送信する",
+                    "Geminiのチャット画面を開く",
+                    "「こんにちは、私の名前は〇〇です。覚えてください」と入力して送信する",
                     "Geminiから「覚えました」等の返事が来るのを確認する",
                     "「私の名前は何ですか？」と質問を送信して、正解することを確認する"
                 ]
@@ -1185,111 +1181,151 @@
                     "スマホやPCのメモアプリ（Keep, Notes等）を開いて貼り付ける"
                 ]
             },
+            { 
+                id: 7, 
+                title: "長文記事を要約してSlack/メールに送る", 
+                difficulty: 3,
+                isCleared: false, 
+                condition: "Geminiで長い文章を要約させ、その結果を他のツール（チャットツールやメール）に転送または保存する。",
+                steps: [
+                    "読みたい長文のニュース記事やブログを見つける",
+                    "Geminiに「以下の文章を3行で要約して」と指示し、文章を貼り付ける",
+                    "要約されたテキストをコピーする",
+                    "Slack、Discord、または自分宛てのメールに貼り付けて送信し、情報をストックする"
+                ]
+            }
         ];
 
         /* * =========================================
-         * データ永続化・ユーザー管理
+         * Firestore ロジック (Data Sync)
          * =========================================
          */
-        const STORAGE_OLD_KEY = 'ai_quest_board_data_offline_v3';
+        
+        // Firestore Reference Helpers
+        const getSharedCollection = () => collection(db, 'artifacts', appId, 'public', 'data', 'quest_board');
+        const getAppStateDoc = () => doc(db, 'artifacts', appId, 'public', 'data', 'quest_board', 'app_state');
+        const getUserDoc = (userId) => doc(db, 'artifacts', appId, 'public', 'data', 'quest_board', `user_${userId}`);
 
-        // アプリ初期化
-        window.initApp = function() {
-            // バージョン表示更新
+        // State
+        let appStateUnsubscribe = null;
+        let userDataUnsubscribe = null;
+
+        // App Initialize (Window Scope)
+        window.initApp = async function() {
+            // Footer version
             const footerVersion = document.getElementById('version-number');
-            if(footerVersion) {
-                footerVersion.innerText = `${APP_VERSION} (Last Updated: ${LAST_UPDATE})`;
-            }
+            if(footerVersion) footerVersion.innerText = `${APP_VERSION} (Sync Active)`;
 
-            const savedState = localStorage.getItem(APP_STATE_KEY);
-            if (savedState) {
-                appState = JSON.parse(savedState);
+            // Auth
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(auth, __initial_auth_token);
             } else {
-                const oldData = localStorage.getItem(STORAGE_OLD_KEY);
-                const defaultUserId = 'user_' + Date.now();
-                
-                appState = {
-                    currentUserId: defaultUserId,
-                    users: [{ id: defaultUserId, name: 'Main User' }]
-                };
-                
-                saveAppState();
-
-                if (oldData) {
-                    localStorage.setItem(`ai_quest_board_data_${defaultUserId}`, oldData);
-                    const oldKey = localStorage.getItem('ai_quest_user_api_key');
-                    if (oldKey && !userApiKey) {
-                        userApiKey = oldKey;
-                        localStorage.setItem(GLOBAL_API_KEY_STORAGE, oldKey);
-                    }
-                } else {
-                    saveUserData(defaultUserId, { totalXP: 0, questData: JSON.parse(JSON.stringify(defaultQuestData)) });
-                }
+                await signInAnonymously(auth);
             }
-
-            loadUserData(appState.currentUserId);
-            updateUserButton();
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    console.log("Authenticated. Starting sync...");
+                    startAppStateSync();
+                }
+            });
         };
 
-        function saveAppState() {
-            localStorage.setItem(APP_STATE_KEY, JSON.stringify(appState));
-        }
-
-        function saveUserData(userId, data) {
-            if (!userId) return;
-            localStorage.setItem(`ai_quest_board_data_${userId}`, JSON.stringify(data));
-        }
-
-        function saveCurrentData() {
-            if (!appState.currentUserId) return;
-            saveUserData(appState.currentUserId, {
-                totalXP: totalXP,
-                questData: questData
-            });
-            updateCharacterStatus();
-        }
-
-        function loadUserData(userId) {
-            if (!userId) return;
+        // 1. App State (User List) Sync
+        function startAppStateSync() {
+            if (appStateUnsubscribe) appStateUnsubscribe();
             
-            const savedData = localStorage.getItem(`ai_quest_board_data_${userId}`);
-            userApiKey = localStorage.getItem(GLOBAL_API_KEY_STORAGE) || "";
+            appStateUnsubscribe = onSnapshot(getAppStateDoc(), (docSnap) => {
+                if (docSnap.exists()) {
+                    appState = docSnap.data();
+                    // If current user is not set (first load), set to first user or create default
+                    if (!appState.currentUserId && appState.users.length > 0) {
+                        window.switchUser(appState.users[0].id);
+                    } else if (appState.currentUserId) {
+                        // Ensure current user data sync is active
+                        if (!userDataUnsubscribe) {
+                            startUserDataSync(appState.currentUserId);
+                        }
+                        updateUserButton();
+                    }
+                } else {
+                    // Initialize App State if empty
+                    const defaultUserId = 'user_' + Date.now();
+                    appState = {
+                        currentUserId: defaultUserId,
+                        users: [{ id: defaultUserId, name: 'Main User' }]
+                    };
+                    setDoc(getAppStateDoc(), appState);
+                    // Initialize Default User Data
+                    saveUserDataToFirestore(defaultUserId, { totalXP: 0, questData: JSON.parse(JSON.stringify(defaultQuestData)) });
+                }
+            }, (error) => {
+                console.error("App State Sync Error:", error);
+            });
+        }
 
-            if (savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    totalXP = parsed.totalXP || 0;
+        // 2. User Data Sync
+        function startUserDataSync(userId) {
+            if (userDataUnsubscribe) userDataUnsubscribe(); // Unsubscribe previous
+            
+            userDataUnsubscribe = onSnapshot(getUserDoc(userId), (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    totalXP = data.totalXP || 0;
                     
-                    let savedQuests = parsed.questData || [];
+                    // Merge logic for questData (add new default quests if missing)
+                    let savedQuests = data.questData || [];
                     let hasNew = false;
-                    
                     defaultQuestData.forEach(defQ => {
-                        const existingQuest = savedQuests.find(savedQ => savedQ.id === defQ.id);
-                        if (!existingQuest) {
+                        const existing = savedQuests.find(q => q.id === defQ.id);
+                        if (!existing) {
                             savedQuests.push(defQ);
                             hasNew = true;
                         } else {
-                            if (typeof existingQuest.started === 'undefined') { existingQuest.started = false; hasNew = true; }
-                            if (!existingQuest.checkedSteps) { existingQuest.checkedSteps = []; hasNew = true; }
-                            if (typeof existingQuest.quizDone === 'undefined') { existingQuest.quizDone = false; hasNew = true; }
-                            if (!existingQuest.artifacts) { existingQuest.artifacts = []; hasNew = true; }
-                            if (!existingQuest.chatHistory) { existingQuest.chatHistory = []; hasNew = true; }
+                            // Prop checks
+                            if (typeof existing.started === 'undefined') { existing.started = false; hasNew = true; }
+                            if (!existing.checkedSteps) { existing.checkedSteps = []; hasNew = true; }
+                            if (typeof existing.quizDone === 'undefined') { existing.quizDone = false; hasNew = true; }
+                            if (!existing.artifacts) { existing.artifacts = []; hasNew = true; }
+                            if (!existing.chatHistory) { existing.chatHistory = []; hasNew = true; }
                         }
                     });
-
+                    
                     questData = savedQuests;
-                    if (hasNew) saveUserData(userId, { totalXP, questData });
-
-                } catch (e) {
-                    console.error("Data load failed", e);
+                    
+                    if (hasNew) {
+                        saveCurrentData(); // Save back merged data
+                    }
+                    
+                    updateCharacterStatus();
+                    window.renderQuests();
+                } else {
+                    // If user doc doesn't exist (shouldn't happen if flow is correct, but safe fallback)
                     resetToDefault();
                 }
-            } else {
-                resetToDefault();
-            }
-            
-            updateCharacterStatus();
-            window.renderQuests();
+            }, (error) => {
+                console.error("User Data Sync Error:", error);
+            });
+        }
+
+        // Save Functions
+        async function saveAppStateToFirestore() {
+            await setDoc(getAppStateDoc(), appState);
+        }
+
+        async function saveUserDataToFirestore(userId, data) {
+            await setDoc(getUserDoc(userId), data);
+        }
+
+        async function saveCurrentData() {
+            if (!appState.currentUserId) return;
+            const data = {
+                totalXP: totalXP,
+                questData: questData
+            };
+            // Optimistic UI update not needed since onSnapshot handles it, but for local feel:
+            updateCharacterStatus(); 
+            await saveUserDataToFirestore(appState.currentUserId, data);
         }
 
         function resetToDefault() {
@@ -1313,7 +1349,8 @@
         function updateUserButton() {
             const currentUser = appState.users.find(u => u.id === appState.currentUserId);
             const name = currentUser ? currentUser.name : 'Guest';
-            document.getElementById('currentUserName').innerText = name;
+            const btn = document.getElementById('currentUserName');
+            if(btn) btn.innerText = name;
         }
 
         window.openUserModal = function() {
@@ -1354,15 +1391,12 @@
                 return;
             }
             
-            // 切り替え前に現在のデータを保存 (重要)
-            saveCurrentData();
-
-            // ユーザー切り替え処理
+            // ユーザー切り替え
             appState.currentUserId = userId;
-            saveAppState(); // アプリ状態（現在のユーザーID）を保存
+            saveAppStateToFirestore(); // 状態保存
             
-            // 新しいユーザーデータをロード
-            loadUserData(userId);
+            // データ同期切り替え
+            startUserDataSync(userId);
             updateUserButton();
             
             window.closeModal();
@@ -1374,22 +1408,19 @@
             const name = nameInput.value.trim();
             if (!name) return alert("ユーザー名を入力してください");
 
-            // 現在のデータを保存
-            saveCurrentData();
-
             const newUserId = 'user_' + Date.now();
-            appState.users.push({ id: newUserId, name: name });
-            saveAppState();
             
-            // 新規ユーザーデータを作成して保存
+            // 1. Initialize data for new user
             const initialData = { totalXP: 0, questData: JSON.parse(JSON.stringify(defaultQuestData)) };
-            saveUserData(newUserId, initialData);
-            
-            // 状態更新と切り替え
+            saveUserDataToFirestore(newUserId, initialData);
+
+            // 2. Update App State
+            appState.users.push({ id: newUserId, name: name });
             appState.currentUserId = newUserId;
-            saveAppState();
-            
-            loadUserData(newUserId);
+            saveAppStateToFirestore();
+
+            // 3. Switch context
+            startUserDataSync(newUserId);
             updateUserButton();
             window.closeModal();
         };
@@ -1403,7 +1434,6 @@
             document.getElementById('commonModal').style.display = 'none';
         }
         
-        // モーダル外クリック
         window.onclick = function(e) {
             const modal = document.getElementById('commonModal');
             if (e.target == modal) window.closeModal();
@@ -1418,7 +1448,8 @@
             modalBody.innerHTML = `
                 <div class="api-note">
                     AI機能を使用するには <strong>Google Gemini API Key</strong> が必要です。<br>
-                    キーはブラウザ内に保存され、<strong>全ユーザーで共通</strong>して使用されます。<br>
+                    セキュリティのため、キーはこのブラウザ（localStorage）にのみ保存され、同期されません。<br>
+                    新しいデバイスでは再入力が必要です。<br>
                     <a href="https://aistudio.google.com/app/apikey" target="_blank">👉 APIキーの取得はこちら (Google AI Studio)</a>
                 </div>
                 <input type="password" id="apiKeyInput" class="api-key-input" placeholder="Paste your API Key here" value="${userApiKey}">
@@ -1432,7 +1463,7 @@
             if (input) {
                 userApiKey = input.value.trim();
                 localStorage.setItem(GLOBAL_API_KEY_STORAGE, userApiKey);
-                alert("APIキーを保存しました（全ユーザー共通）");
+                alert("APIキーをこのブラウザに保存しました。");
                 window.closeModal();
             }
         }
@@ -1560,7 +1591,7 @@
          */
         async function callGeminiAPI(payload) {
             if (!userApiKey) {
-                alert("AI機能を使うにはAPIキーの設定が必要です。\n右上の「⚙️」ボタンから設定してください。\n(キーは全ユーザー共通で保存されます)");
+                alert("AI機能を使うにはAPIキーの設定が必要です。\n右上の「⚙️」ボタンから設定してください。");
                 window.openSettings();
                 return null;
             }
@@ -2353,4 +2384,3 @@
     </script>
 </body>
 </html>
-
