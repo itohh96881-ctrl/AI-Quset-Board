@@ -33,8 +33,8 @@
             /* オレンジ (相談) */
             --quiz: #e11d48;
             /* 赤 (クイズ) */
-            --quiz: #e11d48;
-            /* 赤 (クイズ) */
+            --artifact: #06b6d4;
+            /* シアン (成果物) */
             --card-border: #64748b;
             /* ギルドカード枠 */
             --modal-bg: rgba(15, 23, 42, 0.95);
@@ -645,7 +645,80 @@
             cursor: default;
         }
 
+        /* 成果物リスト */
+        .artifact-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
 
+        .artifact-item {
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid var(--artifact);
+            color: #22d3ee;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            text-decoration: none;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .artifact-item:hover {
+            background: rgba(6, 182, 212, 0.2);
+            transform: translateY(-2px);
+            color: #fff;
+        }
+
+        .add-artifact-btn {
+            background: transparent;
+            border: 1px dashed var(--artifact);
+            color: var(--artifact);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .add-artifact-btn:hover {
+            background: rgba(6, 182, 212, 0.1);
+        }
+
+        /* ギャラリーカード */
+        .gallery-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: 15px;
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 120px;
+            text-decoration: none;
+        }
+
+        .gallery-card:hover {
+            transform: translateY(-3px);
+            border-color: var(--artifact);
+            box-shadow: 0 5px 15px rgba(6, 182, 212, 0.2);
+        }
+
+        .gallery-title {
+            color: #22d3ee;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .gallery-quest {
+            color: var(--text-sub);
+            font-size: 0.85rem;
+        }
 
         /* ヒント・レポートエリア (AI用) */
         .ai-message-area {
@@ -1248,7 +1321,14 @@
         </div>
     </header>
 
-
+    <!-- 成果物ギャラリー (ここに移動) -->
+    <div id="artifact-gallery"
+        style="display: none; padding: 20px; max-width: 1200px; margin: 0 auto; width: 100%; box-sizing: border-box;">
+        <h2 class="section-title">🏆 Artifacts Gallery</h2>
+        <div id="gallery-container" class="gallery-grid">
+            <!-- Artifact cards here -->
+        </div>
+    </div>
 
     <!-- 難易度バー (Updated to match logic) -->
     <div class="difficulty-bar">
@@ -1491,7 +1571,7 @@
                             if (typeof existingQuest.started === 'undefined') { existingQuest.started = false; hasNew = true; }
                             if (!existingQuest.checkedSteps) { existingQuest.checkedSteps = []; hasNew = true; }
                             if (typeof existingQuest.quizDone === 'undefined') { existingQuest.quizDone = false; hasNew = true; }
-
+                            if (!existingQuest.artifacts) { existingQuest.artifacts = []; hasNew = true; }
                             if (!existingQuest.chatHistory) { existingQuest.chatHistory = []; hasNew = true; }
                         }
                     });
@@ -1516,7 +1596,7 @@
             questData = JSON.parse(JSON.stringify(defaultQuestData));
             questData.forEach(q => {
                 if (q.isCleared) totalXP += (q.difficulty * 100);
-
+                q.artifacts = [];
                 q.chatHistory = [];
             });
             if (appState.currentUserId) {
@@ -1834,7 +1914,8 @@
          */
         const container = document.getElementById('quest-container');
         const viewHeader = document.getElementById('view-header');
-
+        const artifactGallery = document.getElementById('artifact-gallery');
+        const galleryContainer = document.getElementById('gallery-container');
 
         window.generateStars = count => '★'.repeat(count);
 
@@ -1908,88 +1989,91 @@
             }
 
 
-
-            window.renderSingleQuest = function (id) {
-                const quest = questData.find(q => q.id === id);
-                if (!quest) return;
-
-                container.innerHTML = '';
-                container.className = 'single-view-container';
-                viewHeader.style.display = 'block';
+        }
 
 
-                const card = createQuestCard(quest, true);
-                card.classList.add('single-view-card');
-                container.appendChild(card);
 
-                window.scrollTo(0, 0);
-            }
+        window.renderSingleQuest = function (id) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest) return;
 
-            window.startQuest = function (id) {
-                const quest = questData.find(q => q.id === id);
-                if (quest) {
-                    quest.started = true;
-                    saveCurrentData();
-                    window.renderSingleQuest(id);
-                }
-            };
+            container.innerHTML = '';
+            container.className = 'single-view-container';
+            viewHeader.style.display = 'block';
 
-            window.toggleStep = function (id, stepIndex) {
-                const quest = questData.find(q => q.id === id);
-                if (!quest) return;
 
-                if (!quest.checkedSteps) quest.checkedSteps = [];
+            const card = createQuestCard(quest, true);
+            card.classList.add('single-view-card');
+            container.appendChild(card);
 
-                const idx = quest.checkedSteps.indexOf(stepIndex);
-                if (idx > -1) {
-                    quest.checkedSteps.splice(idx, 1);
-                } else {
-                    quest.checkedSteps.push(stepIndex);
-                }
+            window.scrollTo(0, 0);
+        }
+
+        window.startQuest = function (id) {
+            const quest = questData.find(q => q.id === id);
+            if (quest) {
+                quest.started = true;
                 saveCurrentData();
                 window.renderSingleQuest(id);
-            };
+            }
+        };
 
-            window.completeQuest = function (id) {
-                const quest = questData.find(q => q.id === id);
-                if (!quest || quest.isCleared) return;
+        window.toggleStep = function (id, stepIndex) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest) return;
 
-                const prevRank = getCurrentRank(totalXP);
-                const earnedXP = quest.difficulty * 100;
+            if (!quest.checkedSteps) quest.checkedSteps = [];
 
-                quest.isCleared = true;
-                quest.xp = earnedXP;
-                totalXP += earnedXP;
+            const idx = quest.checkedSteps.indexOf(stepIndex);
+            if (idx > -1) {
+                quest.checkedSteps.splice(idx, 1);
+            } else {
+                quest.checkedSteps.push(stepIndex);
+            }
+            saveCurrentData();
+            window.renderSingleQuest(id);
+        };
 
-                saveCurrentData();
+        window.completeQuest = function (id) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest || quest.isCleared) return;
 
-                const newRank = getCurrentRank(totalXP);
-                if (newRank.minXP > prevRank.minXP) {
-                    setTimeout(() => {
-                        alert(`🎉 LEVEL UP! \n${newRank.title} になりました！\nおめでとうございます！`);
-                    }, 100);
-                }
+            const prevRank = getCurrentRank(totalXP);
+            const earnedXP = quest.difficulty * 100;
 
-                if (container.classList.contains('single-view-container')) {
-                    window.renderSingleQuest(id);
-                } else {
-                    window.renderQuests();
-                }
-            };
+            quest.isCleared = true;
+            quest.xp = earnedXP;
+            totalXP += earnedXP;
 
-            window.startQuiz = async function (id) {
-                const quest = questData.find(q => q.id === id);
-                if (!quest) return;
+            saveCurrentData();
 
-                const modalTitle = document.getElementById('modalTitle');
-                const modalBody = document.getElementById('modalBody');
-                const modal = document.getElementById('commonModal');
+            const newRank = getCurrentRank(totalXP);
+            if (newRank.minXP > prevRank.minXP) {
+                setTimeout(() => {
+                    alert(`🎉 LEVEL UP! \n${newRank.title} になりました！\nおめでとうございます！`);
+                }, 100);
+            }
 
-                modalTitle.innerText = `Bonus Quiz: ${quest.title}`;
-                modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:var(--quiz);"></div><br><br>Generating Quiz from Quest...</div>';
-                modal.style.display = 'block';
+            if (container.classList.contains('single-view-container')) {
+                window.renderSingleQuest(id);
+            } else {
+                window.renderQuests();
+            }
+        };
 
-                const prompt = `
+        window.startQuiz = async function (id) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest) return;
+
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modal = document.getElementById('commonModal');
+
+            modalTitle.innerText = `Bonus Quiz: ${quest.title}`;
+            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:var(--quiz);"></div><br><br>Generating Quiz from Quest...</div>';
+            modal.style.display = 'block';
+
+            const prompt = `
                 ユーザーがクエスト「${quest.title}」を完了しました。
                 このクエストの内容に関連する3択クイズを1問作成してください。
                 
@@ -2002,91 +2086,91 @@
                 }
             `;
 
-                const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-                const data = await callGeminiAPI(payload);
+            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            const data = await callGeminiAPI(payload);
 
-                if (data && data.candidates) {
-                    try {
-                        const quiz = JSON.parse(data.candidates[0].content.parts[0].text);
-                        renderQuiz(id, quiz);
-                    } catch (e) {
-                        console.error(e);
-                        modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">クイズ生成に失敗しました。</div>';
-                    }
-                } else {
-                    modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">通信エラーが発生しました。</div>';
+            if (data && data.candidates) {
+                try {
+                    const quiz = JSON.parse(data.candidates[0].content.parts[0].text);
+                    renderQuiz(id, quiz);
+                } catch (e) {
+                    console.error(e);
+                    modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">クイズ生成に失敗しました。</div>';
                 }
-            };
+            } else {
+                modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">通信エラーが発生しました。</div>';
+            }
+        };
 
-            function renderQuiz(questId, quiz) {
-                const modalBody = document.getElementById('modalBody');
-                const optionsHtml = quiz.options.map((opt, i) =>
-                    `<div class="quiz-option" onclick="checkAnswer(${questId}, ${i}, ${quiz.correctIndex}, '${quiz.explanation}')">${opt}</div>`
-                ).join('');
+        function renderQuiz(questId, quiz) {
+            const modalBody = document.getElementById('modalBody');
+            const optionsHtml = quiz.options.map((opt, i) =>
+                `<div class="quiz-option" onclick="checkAnswer(${questId}, ${i}, ${quiz.correctIndex}, '${quiz.explanation}')">${opt}</div>`
+            ).join('');
 
-                modalBody.innerHTML = `
+            modalBody.innerHTML = `
                 <div class="quiz-container">
                     <div class="quiz-question">Q. ${quiz.question}</div>
                     <div id="quizOptions">${optionsHtml}</div>
                     <div id="quizResult" class="quiz-result" style="display:none;"></div>
                 </div>
             `;
+        }
+
+        window.checkAnswer = function (questId, selectedIndex, correctIndex, explanation) {
+            const resultDiv = document.getElementById('quizResult');
+            const optionsDiv = document.getElementById('quizOptions');
+            const options = optionsDiv.getElementsByClassName('quiz-option');
+
+            for (let opt of options) {
+                opt.onclick = null;
+                opt.style.cursor = 'default';
             }
 
-            window.checkAnswer = function (questId, selectedIndex, correctIndex, explanation) {
-                const resultDiv = document.getElementById('quizResult');
-                const optionsDiv = document.getElementById('quizOptions');
-                const options = optionsDiv.getElementsByClassName('quiz-option');
+            if (selectedIndex === correctIndex) {
+                options[selectedIndex].classList.add('correct');
+                resultDiv.innerHTML = `🎉 Correct! +50 XP<br><br><span style="font-weight:normal; font-size:0.9rem;">${explanation}</span>`;
+                resultDiv.className = 'quiz-result success';
 
-                for (let opt of options) {
-                    opt.onclick = null;
-                    opt.style.cursor = 'default';
+                const quest = questData.find(q => q.id === questId);
+                if (quest && !quest.quizDone) {
+                    quest.quizDone = true;
+                    totalXP += 50;
+                    saveCurrentData();
                 }
+            } else {
+                options[selectedIndex].classList.add('wrong');
+                options[correctIndex].classList.add('correct');
+                resultDiv.innerHTML = `😢 Incorrect...<br><br><span style="font-weight:normal; font-size:0.9rem;">${explanation}</span>`;
+                resultDiv.className = 'quiz-result fail';
+            }
+            resultDiv.style.display = 'block';
 
-                if (selectedIndex === correctIndex) {
-                    options[selectedIndex].classList.add('correct');
-                    resultDiv.innerHTML = `🎉 Correct! +50 XP<br><br><span style="font-weight:normal; font-size:0.9rem;">${explanation}</span>`;
-                    resultDiv.className = 'quiz-result success';
+            const closeBtn = document.createElement('div');
+            closeBtn.innerHTML = `<button class="submit-btn" style="margin-top:15px;" onclick="closeModal(); window.renderSingleQuest(${questId});">Close</button>`;
+            resultDiv.appendChild(closeBtn);
+        };
 
-                    const quest = questData.find(q => q.id === questId);
-                    if (quest && !quest.quizDone) {
-                        quest.quizDone = true;
-                        totalXP += 50;
-                        saveCurrentData();
-                    }
-                } else {
-                    options[selectedIndex].classList.add('wrong');
-                    options[correctIndex].classList.add('correct');
-                    resultDiv.innerHTML = `😢 Incorrect...<br><br><span style="font-weight:normal; font-size:0.9rem;">${explanation}</span>`;
-                    resultDiv.className = 'quiz-result fail';
-                }
-                resultDiv.style.display = 'block';
+        // --- ギルドカード生成 ---
+        window.openGuildCardModal = async function () {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modal = document.getElementById('commonModal');
 
-                const closeBtn = document.createElement('div');
-                closeBtn.innerHTML = `<button class="submit-btn" style="margin-top:15px;" onclick="closeModal(); window.renderSingleQuest(${questId});">Close</button>`;
-                resultDiv.appendChild(closeBtn);
-            };
+            modalTitle.innerText = "🪪 Guild Card Generation";
+            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:var(--gold);"></div><br><br>Analyzing your journey...</div>';
+            modal.style.display = 'block';
 
-            // --- ギルドカード生成 ---
-            window.openGuildCardModal = async function () {
-                const modalTitle = document.getElementById('modalTitle');
-                const modalBody = document.getElementById('modalBody');
-                const modal = document.getElementById('commonModal');
+            // 分析用データの作成
+            const completed = questData.filter(q => q.isCleared).map(q => q.title);
+            const rank = getCurrentRank(totalXP);
 
-                modalTitle.innerText = "🪪 Guild Card Generation";
-                modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:var(--gold);"></div><br><br>Analyzing your journey...</div>';
-                modal.style.display = 'block';
+            if (completed.length === 0) {
+                modalBody.innerHTML = '<div style="text-align:center; padding:20px;">まだクリアしたクエストがありません。<br>クエストをクリアしてから発行しましょう！</div>';
+                return;
+            }
 
-                // 分析用データの作成
-                const completed = questData.filter(q => q.isCleared).map(q => q.title);
-                const rank = getCurrentRank(totalXP);
-
-                if (completed.length === 0) {
-                    modalBody.innerHTML = '<div style="text-align:center; padding:20px;">まだクリアしたクエストがありません。<br>クエストをクリアしてから発行しましょう！</div>';
-                    return;
-                }
-
-                const prompt = `
+            const prompt = `
                 ユーザーの冒険の記録（完了したクエスト）をもとに、ファンタジーRPG風のギルドカード情報を生成してください。
                 
                 完了クエスト: ${completed.join(', ')}
@@ -2103,15 +2187,15 @@
                 職業と称号は、完了したクエストの内容（プログラミング、料理、学習など）の傾向を反映したユニークなものにしてください。
             `;
 
-                const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-                const data = await callGeminiAPI(payload);
+            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            const data = await callGeminiAPI(payload);
 
-                if (data && data.candidates) {
-                    try {
-                        const card = JSON.parse(data.candidates[0].content.parts[0].text);
-                        const userName = document.getElementById('currentUserName').innerText;
+            if (data && data.candidates) {
+                try {
+                    const card = JSON.parse(data.candidates[0].content.parts[0].text);
+                    const userName = document.getElementById('currentUserName').innerText;
 
-                        modalBody.innerHTML = `
+                    modalBody.innerHTML = `
                         <div class="guild-card-container">
                             <div class="gc-rank">Rank: ${rank.title}</div>
                             <div class="gc-name">${userName}</div>
@@ -2135,21 +2219,21 @@
                             <button class="submit-btn" onclick="closeModal()">Awesome!</button>
                         </div>
                     `;
-                    } catch (e) {
-                        console.error(e);
-                        modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">カード生成に失敗しました。</div>';
-                    }
-                } else {
-                    modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">通信エラーが発生しました。</div>';
+                } catch (e) {
+                    console.error(e);
+                    modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">カード生成に失敗しました。</div>';
                 }
+            } else {
+                modalBody.innerHTML = '<div style="text-align:center; color:#ef4444;">通信エラーが発生しました。</div>';
             }
+        }
 
-            window.generateNewQuest = async function (level) {
-                const modalBody = document.getElementById('modalBody');
-                modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#a855f7; width:30px; height:30px;"></div><br><br>Generating Quest...</div>';
+        window.generateNewQuest = async function (level) {
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#a855f7; width:30px; height:30px;"></div><br><br>Generating Quest...</div>';
 
-                const difficultyText = level ? `難易度: ${level}` : `難易度: 1〜5のランダムな整数`;
-                const fullPrompt = `
+            const difficultyText = level ? `難易度: ${level}` : `難易度: 1〜5のランダムな整数`;
+            const fullPrompt = `
                 AI学習者が楽しめるユニークなクエストを1つ考えてください。
                 以下のJSON形式で日本語で出力してください:
                 { 
@@ -2171,186 +2255,189 @@
                 ★5: 高度な開発
             `;
 
-                const payload = { contents: [{ parts: [{ text: fullPrompt }] }], generationConfig: { responseMimeType: "application/json" } };
-                const data = await callGeminiAPI(payload);
+            const payload = { contents: [{ parts: [{ text: fullPrompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            const data = await callGeminiAPI(payload);
 
-                if (data && data.candidates) {
-                    try {
-                        const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                        questData.push({ id: Date.now(), title: res.title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", chatHistory: [] });
-                        saveCurrentData();
-                        window.renderQuests();
-                        window.closeModal();
-                    } catch (e) { console.error(e); alert("生成エラー"); window.closeModal(); }
-                } else { window.closeModal(); }
-            };
+            if (data && data.candidates) {
+                try {
+                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
+                    questData.push({ id: Date.now(), title: res.title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
+                    saveCurrentData();
+                    window.renderQuests();
+                    window.closeModal();
+                } catch (e) { console.error(e); alert("生成エラー"); window.closeModal(); }
+            } else { window.closeModal(); }
+        };
 
-            window.generateCustomQuest = async function () {
-                const title = document.getElementById('manualTitle').value.trim();
-                if (!title) { alert("タイトルを入力してください"); return; }
+        window.generateCustomQuest = async function () {
+            const title = document.getElementById('manualTitle').value.trim();
+            if (!title) { alert("タイトルを入力してください"); return; }
 
-                const modalBody = document.getElementById('modalBody');
-                modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#ec4899; width:30px; height:30px;"></div><br><br>Generating Quest Details...</div>';
+            const modalBody = document.getElementById('modalBody');
+            modalBody.innerHTML = '<div style="text-align:center; padding:40px;"><div class="loading-spinner" style="border-top-color:#ec4899; width:30px; height:30px;"></div><br><br>Generating Quest Details...</div>';
 
-                const prompt = `
+            const prompt = `
                 ユーザーが「${title}」というクエスト（タスク）を実行しようとしています。
                 このクエストのタイトルをもとに、適切な難易度(1-5)、具体的なクリア条件、実行ステップ(3-5個)を考えてJSONで出力してください。
                 出力JSON形式: { "difficulty": 1〜5, "condition": "...", "steps": ["..."] }
                 条件: 難易度はタスクの複雑さから推定。ステップは具体的アクションで。
             `;
 
-                const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
-                const data = await callGeminiAPI(payload);
+            const payload = { contents: [{ parts: [{ text: prompt }] }], generationConfig: { responseMimeType: "application/json" } };
+            const data = await callGeminiAPI(payload);
 
-                if (data && data.candidates) {
-                    try {
-                        const res = JSON.parse(data.candidates[0].content.parts[0].text);
-                        questData.push({ id: Date.now(), title: title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", chatHistory: [] });
-                        saveCurrentData();
-                        window.renderQuests();
-                        window.closeModal();
-                    } catch (e) { console.error(e); alert("エラー"); window.closeModal(); }
-                } else { window.closeModal(); }
-            };
+            if (data && data.candidates) {
+                try {
+                    const res = JSON.parse(data.candidates[0].content.parts[0].text);
+                    questData.push({ id: Date.now(), title: title, difficulty: res.difficulty, condition: res.condition, steps: res.steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
+                    saveCurrentData();
+                    window.renderQuests();
+                    window.closeModal();
+                } catch (e) { console.error(e); alert("エラー"); window.closeModal(); }
+            } else { window.closeModal(); }
+        };
 
-            window.saveManualQuest = function () {
-                const title = document.getElementById('manualTitle').value.trim();
-                const difficulty = parseInt(document.getElementById('manualDiff').value);
-                const condition = document.getElementById('manualCondition').value.trim();
-                const stepsText = document.getElementById('manualSteps').value.trim();
-                if (!title) { alert("タイトルを入力してください"); return; }
-                const steps = stepsText ? stepsText.split('\n').map(s => s.trim()).filter(s => s) : ["手順を確認して実行する"];
+        window.saveManualQuest = function () {
+            const title = document.getElementById('manualTitle').value.trim();
+            const difficulty = parseInt(document.getElementById('manualDiff').value);
+            const condition = document.getElementById('manualCondition').value.trim();
+            const stepsText = document.getElementById('manualSteps').value.trim();
+            if (!title) { alert("タイトルを入力してください"); return; }
+            const steps = stepsText ? stepsText.split('\n').map(s => s.trim()).filter(s => s) : ["手順を確認して実行する"];
 
-                questData.push({ id: Date.now(), title: title, difficulty: difficulty, condition: condition, steps: steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", chatHistory: [] });
-                saveCurrentData();
-                window.renderQuests();
-                window.closeModal();
-            };
+            questData.push({ id: Date.now(), title: title, difficulty: difficulty, condition: condition, steps: steps, isCleared: false, started: false, checkedSteps: [], hint: "", xp: 0, feedback: "", artifacts: [], chatHistory: [] });
+            saveCurrentData();
+            window.renderQuests();
+            window.closeModal();
+        };
 
-            window.openConsultModal = function (id) {
-                const quest = questData.find(q => q.id === id);
-                if (!quest) return;
-                const modalTitle = document.getElementById('modalTitle');
-                const modalBody = document.getElementById('modalBody');
-                const modal = document.getElementById('commonModal');
+        window.openConsultModal = function (id) {
+            const quest = questData.find(q => q.id === id);
+            if (!quest) return;
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modal = document.getElementById('commonModal');
 
-                modalTitle.innerText = "Consult Mentor 🧙‍♂️";
-                modalBody.innerHTML = `
+            modalTitle.innerText = "Consult Mentor 🧙‍♂️";
+            modalBody.innerHTML = `
                 <div style="background:#1e293b; padding:15px; border-radius:8px; margin-bottom:20px; border:1px solid #334155;"><strong>${quest.title}</strong></div>
                 <textarea id="consultInput" class="report-textarea" style="height:100px;" placeholder="相談内容..."></textarea>
                 <button id="submitConsultBtn" class="submit-btn" style="background:var(--consult);" onclick="submitConsultation(${id})">Ask Mentor</button>
                 <div id="consultResult" style="margin-top:20px;"></div>
             `;
-                modal.style.display = 'block';
+            modal.style.display = 'block';
+        }
+
+        window.submitConsultation = async function (id) {
+            const quest = questData.find(q => q.id === id);
+            const inputVal = document.getElementById('consultInput').value;
+            const resultArea = document.getElementById('consultResult');
+            const btn = document.getElementById('submitConsultBtn');
+
+            let progressText = "";
+            if (quest.steps) {
+                progressText = quest.steps.map((step, idx) => {
+                    const isChecked = (quest.checkedSteps || []).includes(idx);
+                    return `- Step ${idx + 1}: ${step} [${isChecked ? '完了' : '未完了'}]`;
+                }).join('\n');
             }
 
-            window.submitConsultation = async function (id) {
-                const quest = questData.find(q => q.id === id);
-                const inputVal = document.getElementById('consultInput').value;
-                const resultArea = document.getElementById('consultResult');
-                const btn = document.getElementById('submitConsultBtn');
+            btn.disabled = true;
+            btn.innerText = "Consulting...";
+            resultArea.innerHTML = '<div style="text-align:center;">Thinking...</div>';
 
-                let progressText = "";
-                if (quest.steps) {
-                    progressText = quest.steps.map((step, idx) => {
-                        const isChecked = (quest.checkedSteps || []).includes(idx);
-                        return `- Step ${idx + 1}: ${step} [${isChecked ? '完了' : '未完了'}]`;
-                    }).join('\n');
-                }
+            const prompt = `あなたはAI学習クエストの親切なメンターです。クエスト: ${quest.title}, 進捗: ${progressText}, 相談: "${inputVal}"。具体的アドバイスをください。`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            const data = await callGeminiAPI(payload);
 
-                btn.disabled = true;
-                btn.innerText = "Consulting...";
-                resultArea.innerHTML = '<div style="text-align:center;">Thinking...</div>';
+            if (data && data.candidates) {
+                const advice = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
+                resultArea.innerHTML = `<div style="background:rgba(249, 115, 22, 0.1); border-left:4px solid var(--consult); padding:15px; border-radius:6px; color:#ffedd5;">${advice}</div>`;
+            } else {
+                resultArea.innerHTML = 'Error.';
+            }
+            btn.disabled = false;
+            btn.innerText = "Ask Mentor";
+        };
 
-                const prompt = `あなたはAI学習クエストの親切なメンターです。クエスト: ${quest.title}, 進捗: ${progressText}, 相談: "${inputVal}"。具体的アドバイスをください。`;
-                const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                const data = await callGeminiAPI(payload);
+        window.openOracle = async function () {
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            const modal = document.getElementById('commonModal');
 
-                if (data && data.candidates) {
-                    const advice = data.candidates[0].content.parts[0].text.replace(/\n/g, '<br>');
-                    resultArea.innerHTML = `<div style="background:rgba(249, 115, 22, 0.1); border-left:4px solid var(--consult); padding:15px; border-radius:6px; color:#ffedd5;">${advice}</div>`;
-                } else {
-                    resultArea.innerHTML = 'Error.';
-                }
-                btn.disabled = false;
-                btn.innerText = "Ask Mentor";
-            };
+            modalTitle.innerText = "Daily Oracle 🔮";
+            modalBody.innerHTML = '<div style="text-align:center;">Receiving message...</div>';
+            modal.style.display = 'block';
 
-            window.openOracle = async function () {
-                const modalTitle = document.getElementById('modalTitle');
-                const modalBody = document.getElementById('modalBody');
-                const modal = document.getElementById('commonModal');
+            const prompt = `AI学習者に向けて、神秘的で少しユーモアのある「今日の格言」または「学習のヒント」を日本語で1つ生成してください。`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            const data = await callGeminiAPI(payload);
 
-                modalTitle.innerText = "Daily Oracle 🔮";
-                modalBody.innerHTML = '<div style="text-align:center;">Receiving message...</div>';
-                modal.style.display = 'block';
+            if (data && data.candidates) {
+                const text = data.candidates[0].content.parts[0].text;
+                modalBody.innerHTML = `<div style="font-size:1.2rem; text-align:center; padding:20px;">"${text}"</div>`;
+            } else {
+                modalBody.innerHTML = 'Error.';
+            }
+        };
 
-                const prompt = `AI学習者に向けて、神秘的で少しユーモアのある「今日の格言」または「学習のヒント」を日本語で1つ生成してください。`;
-                const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                const data = await callGeminiAPI(payload);
+        window.getAIHint = async function (id, btn) {
+            const quest = questData.find(q => q.id === id);
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '...';
+            btn.disabled = true;
+            const prompt = `クエスト「${quest.title}」のヒントを日本語で1文で。`;
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            const data = await callGeminiAPI(payload);
+            if (data && data.candidates) {
+                quest.hint = data.candidates[0].content.parts[0].text;
+                saveCurrentData();
+                const hintArea = document.getElementById(`hint-area-${id}`);
+                if (hintArea) { hintArea.innerText = "💡 Hint: " + quest.hint; hintArea.style.display = "block"; }
+                else { if (container.classList.contains('single-view-container')) window.renderSingleQuest(id); }
+            }
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+        };
 
-                if (data && data.candidates) {
-                    const text = data.candidates[0].content.parts[0].text;
-                    modalBody.innerHTML = `<div style="font-size:1.2rem; text-align:center; padding:20px;">"${text}"</div>`;
-                } else {
-                    modalBody.innerHTML = 'Error.';
-                }
-            };
+        // Quest Card Create Function - Restored!
+        function createQuestCard(quest, isDetailMode) {
+            const card = document.createElement('div');
+            card.className = `quest-card ${quest.isCleared ? 'completed' : ''}`;
 
-            window.getAIHint = async function (id, btn) {
-                const quest = questData.find(q => q.id === id);
-                const originalText = btn.innerHTML;
-                btn.innerHTML = '...';
-                btn.disabled = true;
-                const prompt = `クエスト「${quest.title}」のヒントを日本語で1文で。`;
-                const payload = { contents: [{ parts: [{ text: prompt }] }] };
-                const data = await callGeminiAPI(payload);
-                if (data && data.candidates) {
-                    quest.hint = data.candidates[0].content.parts[0].text;
-                    saveCurrentData();
-                    const hintArea = document.getElementById(`hint-area-${id}`);
-                    if (hintArea) { hintArea.innerText = "💡 Hint: " + quest.hint; hintArea.style.display = "block"; }
-                    else { if (container.classList.contains('single-view-container')) window.renderSingleQuest(id); }
-                }
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            };
+            if (!isDetailMode) {
+                card.onclick = () => window.renderSingleQuest(quest.id);
+                card.title = "Click to see details";
+            }
 
-            // Quest Card Create Function - Restored!
-            function createQuestCard(quest, isDetailMode) {
-                const card = document.createElement('div');
-                card.className = `quest-card ${quest.isCleared ? 'completed' : ''}`;
+            const earnedXP = quest.xp || (quest.difficulty * 100);
+            const xpBadge = quest.isCleared ? `<div class="xp-badge">+${earnedXP} XP</div>` : '';
 
-                if (!isDetailMode) {
-                    card.onclick = () => window.renderSingleQuest(quest.id);
-                    card.title = "Click to see details";
-                }
+            const hintHtml = quest.hint
+                ? `<div class="ai-message-area hint-msg" style="display: block;">💡 Hint: ${quest.hint}</div>`
+                : `<div class="ai-message-area hint-msg" id="hint-area-${quest.id}"></div>`;
 
-                const earnedXP = quest.xp || (quest.difficulty * 100);
-                const xpBadge = quest.isCleared ? `<div class="xp-badge">+${earnedXP} XP</div>` : '';
+            let mainContent = '';
+            let actionButton = '';
+            let consultButton = '';
+            let quizButton = '';
 
-                const hintHtml = quest.hint
-                    ? `<div class="ai-message-area hint-msg" style="display: block;">💡 Hint: ${quest.hint}</div>`
-                    : `<div class="ai-message-area hint-msg" id="hint-area-${quest.id}"></div>`;
-
-                let mainContent = '';
-                let actionButton = '';
-                let consultButton = '';
-                let quizButton = '';
+            let chatSection = ''; // チャットエリア
 
 
-                // --- Chat UI ---
-                if (isDetailMode && quest.started && !quest.isCleared) {
-                    const chatMessages = (quest.chatHistory || []).map(msg => {
-                        let content = msg.text;
-                        content = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                        content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-                        content = content.replace(/^#{1,6}\s+(.*)$/gm, '<strong style="font-size:1.1em; color:#60a5fa;">$1</strong>');
-                        content = content.replace(/^\s*---\s*$/gm, '<hr style="border-color:#475569; margin:10px 0;">');
-                        return `<div class="chat-message ${msg.role}"><strong>${msg.role === 'user' ? 'You' : '🧙‍♂️ Mentor'}</strong><br>${content}</div>`;
-                    }).join('');
 
-                    chatSection = `
+            // --- Chat UI ---
+            if (isDetailMode && quest.started && !quest.isCleared) {
+                const chatMessages = (quest.chatHistory || []).map(msg => {
+                    let content = msg.text;
+                    content = content.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                    content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                    content = content.replace(/^#{1,6}\s+(.*)$/gm, '<strong style="font-size:1.1em; color:#60a5fa;">$1</strong>');
+                    content = content.replace(/^\s*---\s*$/gm, '<hr style="border-color:#475569; margin:10px 0;">');
+                    return `<div class="chat-message ${msg.role}"><strong>${msg.role === 'user' ? 'You' : '🧙‍♂️ Mentor'}</strong><br>${content}</div>`;
+                }).join('');
+
+                chatSection = `
                     <div class="chat-section">
                         <div class="detail-label">🧙‍♂️ Quest Mentor Chat</div>
                         <div class="chat-container">
@@ -2364,142 +2451,146 @@
                         </div>
                     </div>
                 `;
+            }
+
+            // --- Content Switch ---
+            if (quest.isCleared) {
+                const stepsList = (quest.steps || []).map(step =>
+                    `<li class="step-item checked"><span class="step-bullet">✓</span><span class="step-text">${step}</span></li>`
+                ).join('');
+
+                mainContent = `
+                    <div class="quest-details" style="display:block;">
+                        <ul class="step-list">${stepsList}</ul>
+
+                    </div>
+                `;
+                actionButton = `<button class="complete-action-btn" disabled>✓ Completed</button>`;
+
+                if (!quest.quizDone) {
+                    quizButton = `<button class="quiz-btn" onclick="startQuiz(${quest.id})"><span>🧠 Bonus Quiz (+50 XP)</span></button>`;
+                } else {
+                    quizButton = `<span style="font-size:0.85rem; color:var(--success); font-weight:bold;">🧠 Quiz Cleared!</span>`;
                 }
 
+            } else if (isDetailMode && quest.started) {
+                const steps = quest.steps || [];
+                const checkedSteps = quest.checkedSteps || [];
+                const allChecked = steps.length > 0 && checkedSteps.length === steps.length;
 
-                // --- Content Switch ---
-                if (quest.isCleared) {
-                    const stepsList = (quest.steps || []).map(step =>
-                        `< li class="step-item checked" ><span class="step-bullet">✓</span><span class="step-text">${step}</span></li > `
-                    ).join('');
-
-                    mainContent = `
-                        < div class="quest-details" style = "display:block;" >
-                            <ul class="step-list">${stepsList}</ul>
-                    </div >
-                        `;
-                    actionButton = `< button class="complete-action-btn" disabled >✓ Completed</button > `;
-
-                    if (!quest.quizDone) {
-                        quizButton = `< button class="quiz-btn" onclick = "startQuiz(${quest.id})" > <span>🧠 Bonus Quiz (+50 XP)</span></button > `;
-                    } else {
-                        quizButton = `< span style = "font-size:0.85rem; color:var(--success); font-weight:bold;" >🧠 Quiz Cleared!</span > `;
-                    }
-
-                } else if (isDetailMode && quest.started) {
-                    const steps = quest.steps || [];
-                    const checkedSteps = quest.checkedSteps || [];
-                    const allChecked = steps.length > 0 && checkedSteps.length === steps.length;
-
-                    const stepsHtml = steps.map((step, index) => {
-                        const isChecked = checkedSteps.includes(index);
-                        return `< li class="step-item ${isChecked ? 'checked' : ''}" >
-                        <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="toggleStep(${quest.id}, ${index})">
+                const stepsHtml = steps.map((step, index) => {
+                    const isChecked = checkedSteps.includes(index);
+                    return `<li class="step-item ${isChecked ? 'checked' : ''}">
+                            <input type="checkbox" class="step-checkbox" ${isChecked ? 'checked' : ''} onclick="toggleStep(${quest.id}, ${index})">
                             <span class="step-text">${step}</span>
                         </li>`;
-                    }).join('');
+                }).join('');
 
-                    mainContent = `< div class="quest-details" style = "display:block;" >
+                mainContent = `<div class="quest-details" style="display:block;">
                         <div class="detail-section"><span class="detail-label">Progress: ${checkedSteps.length} / ${steps.length} Steps</span><ul class="step-list">${stepsHtml}</ul></div>
                         <div class="detail-section"><span class="detail-label">🎯 Clear Condition</span><div class="detail-content">${quest.condition || "-"}</div></div>
+ 
                         ${chatSection}
-                    </div > `;
+                    </div>`;
 
-                    if (allChecked) {
-                        actionButton = `< button class="complete-action-btn" onclick = "completeQuest(${quest.id})" >🎉 Complete!(+${quest.difficulty * 100} XP)</button > `;
-                    } else {
-                        actionButton = `< button class="complete-action-btn" disabled > Complete all steps first</button > `;
-                    }
-                    consultButton = `< button class="consult-btn" onclick = "openConsultModal(${quest.id})" > <span>Consult 💬</span></button > `;
-
+                if (allChecked) {
+                    actionButton = `<button class="complete-action-btn" onclick="completeQuest(${quest.id})">🎉 Complete! (+${quest.difficulty * 100} XP)</button>`;
                 } else {
-                    const stepsList = (quest.steps || []).map(step => `< li > ${step}</li > `).join('');
-                    const detailsStyle = isDetailMode ? 'display:block;' : '';
+                    actionButton = `<button class="complete-action-btn" disabled>Complete all steps first</button>`;
+                }
+                consultButton = `<button class="consult-btn" onclick="openConsultModal(${quest.id})"><span>Consult 💬</span></button>`;
 
-                    mainContent = `< div class="quest-details" style = "${detailsStyle}" >
+            } else {
+                const stepsList = (quest.steps || []).map(step => `<li>${step}</li>`).join('');
+                const detailsStyle = isDetailMode ? 'display:block;' : '';
+
+                const artSectionIfDetail = isDetailMode ? artifactSection : '';
+
+                mainContent = `<div class="quest-details" style="${detailsStyle}">
                         <div class="detail-section"><span class="detail-label">🎯 Clear Condition</span><div class="detail-content">${quest.condition || "No specific condition."}</div></div>
                         <div class="detail-section"><span class="detail-label">👣 Steps</span><div class="detail-content"><ul style="padding-left:20px; margin:0;">${stepsList}</ul></div></div>
-                    </div > `;
-                    if (!isDetailMode && quest.started) {
-                        actionButton = `< button class="start-btn" > In Progress...</button > `;
-                    } else {
-                        actionButton = `< button class="start-btn" onclick = "startQuest(${quest.id})" >🚀 Quest Start</button > `;
-                    }
+                        ${artSectionIfDetail}
+                    </div>`;
+                if (!isDetailMode && quest.started) {
+                    actionButton = `<button class="start-btn">In Progress...</button>`;
+                } else {
+                    actionButton = `<button class="start-btn" onclick="startQuest(${quest.id})">🚀 Quest Start</button>`;
                 }
+            }
 
-                card.innerHTML = `
+            card.innerHTML = `
                 ${xpBadge}
                 <div class="difficulty-badge">DIFFICULTY: ${window.generateStars(quest.difficulty)}</div>
                 <div class="quest-title">${quest.title}</div>
                 ${mainContent}
                 ${hintHtml}
-                    <div class="action-area" onclick="event.stopPropagation()">
-                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-                            <button class="hint-btn" onclick="getAIHint(${quest.id}, this)" ${quest.isCleared ? 'disabled' : ''}><span>Hint ✨</span></button>
-                            ${consultButton}
-                            ${quizButton}
-                        </div>
-                        ${actionButton}
+                <div class="action-area" onclick="event.stopPropagation()">
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                        <button class="hint-btn" onclick="getAIHint(${quest.id}, this)" ${quest.isCleared ? 'disabled' : ''}><span>Hint ✨</span></button>
+                        ${consultButton}
+                        ${quizButton}
                     </div>
-                    `;
-                return card;
-            }
+                    ${actionButton}
+                </div>
+            `;
+            return card;
+        }
 
-            // チャット送信処理
-            window.sendChatMessage = async function (questId) {
-                const input = document.getElementById(`chatInput - ${questId} `);
-                const text = input.value.trim();
-                if (!text) return;
+        // チャット送信処理
+        window.sendChatMessage = async function (questId) {
+            const input = document.getElementById(`chatInput-${questId}`);
+            const text = input.value.trim();
+            if (!text) return;
 
-                const quest = questData.find(q => q.id === questId);
-                if (!quest) return;
+            const quest = questData.find(q => q.id === questId);
+            if (!quest) return;
 
-                if (!quest.chatHistory) quest.chatHistory = [];
-                quest.chatHistory.push({ role: 'user', text: text });
+            if (!quest.chatHistory) quest.chatHistory = [];
+            quest.chatHistory.push({ role: 'user', text: text });
 
-                input.value = '';
-                saveCurrentData();
-                window.renderSingleQuest(questId); // 再描画
+            input.value = '';
+            saveCurrentData();
+            window.renderSingleQuest(questId); // 再描画
 
-                // AI応答
-                const context = `
-                    あなたはクエスト「${quest.title}」の達成を直接サポートするAIパートナー（Gemini）です。
-
-                    クエスト情報:
-                    - クリア条件: ${quest.condition}
-                    - ステップ: ${quest.steps.join(', ')}
-                    - 現在の進捗: ${quest.steps.map((s, i) => ((quest.checkedSteps || []).includes(i) ? '[完了]' : '[未完了]') + ' ' + s).join(', ')}
+            // AI応答
+            const context = `
+                あなたはクエスト「${quest.title}」の達成を直接サポートするAIパートナー（Gemini）です。
+                
+                クエスト情報:
+                - クリア条件: ${quest.condition}
+                - ステップ: ${quest.steps.join(', ')}
+                - 現在の進捗: ${quest.steps.map((s, i) => ((quest.checkedSteps || []).includes(i) ? '[完了]' : '[未完了]') + ' ' + s).join(', ')}
                 
                 【重要な振る舞いのルール】
-                    1. あなたは「進め方を教える先生」ではありません。ユーザーと一緒に課題を解決する「実務担当者」として振る舞ってください。
-                    2. 「Geminiに聞いてみましょう」や「AIを使ってみてください」といったメタ的なアドバイスは禁止です。あなた自身がそのAIです。
-                    3. ユーザーからの相談に対しては、直接的に課題を解決するための回答、提案、または必要な情報のヒアリングを行ってください。
-
-                    例：「プレゼントを決めたい」というクエストの場合
-                    悪い回答：「Geminiに相手の趣味を伝えてみましょう」
-                    良い回答：「承知しました。贈る相手の年齢、性別、予算などを教えていただけますか？ 私が最適な候補をいくつか提案します。」
+                1. あなたは「進め方を教える先生」ではありません。ユーザーと一緒に課題を解決する「実務担当者」として振る舞ってください。
+                2. 「Geminiに聞いてみましょう」や「AIを使ってみてください」といったメタ的なアドバイスは禁止です。あなた自身がそのAIです。
+                3. ユーザーからの相談に対しては、直接的に課題を解決するための回答、提案、または必要な情報のヒアリングを行ってください。
+                
+                例：「プレゼントを決めたい」というクエストの場合
+                悪い回答：「Geminiに相手の趣味を伝えてみましょう」
+                良い回答：「承知しました。贈る相手の年齢、性別、予算などを教えていただけますか？ 私が最適な候補をいくつか提案します。」
             `;
 
-                // 履歴構築
-                const historyParts = quest.chatHistory.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
+            // 履歴構築
+            const historyParts = quest.chatHistory.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
 
-                const payload = {
-                    systemInstruction: { parts: [{ text: context }] },
-                    contents: historyParts
-                };
-
-                const data = await callGeminiAPI(payload);
-
-                if (data && data.candidates) {
-                    const responseText = data.candidates[0].content.parts[0].text;
-                    quest.chatHistory.push({ role: 'model', text: responseText });
-                    saveCurrentData();
-                    window.renderSingleQuest(questId);
-                }
+            const payload = {
+                systemInstruction: { parts: [{ text: context }] },
+                contents: historyParts
             };
 
-            // 初期化実行
-            window.initApp();
+            const data = await callGeminiAPI(payload);
+
+            if (data && data.candidates) {
+                const responseText = data.candidates[0].content.parts[0].text;
+                quest.chatHistory.push({ role: 'model', text: responseText });
+                saveCurrentData();
+                window.renderSingleQuest(questId);
+            }
+        };
+
+        // 初期化実行
+        window.initApp();
     </script>
 </body>
 
